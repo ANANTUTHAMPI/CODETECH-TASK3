@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/**
+ * @title Decentralized Marketplace
+ * @dev This contract enables users to list, buy, and sell items using cryptocurrency.
+ */
+contract Marketplace {
+    address public owner;
+    uint public itemCount;
+
+    struct Item {
+        uint id;
+        address payable seller;
+        address buyer;
+        string name;
+        string description;
+        uint price;
+        bool sold;
+    }
+
+    mapping(uint => Item) public items;
+
+    event ItemListed(uint id, address seller, string name, uint price);
+    event ItemBought(uint id, address buyer, uint price);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can perform this action");
+        _;
+    }
+
+    modifier onlySeller(uint _id) {
+        require(items[_id].seller == msg.sender, "Only the seller can perform this action");
+        _;
+    }
+
+    modifier notSold(uint _id) {
+        require(!items[_id].sold, "Item is already sold");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        itemCount = 0;
+    }
+
+    function listItem(string memory _name, string memory _description, uint _price) public {
+        require(_price > 0, "Price must be greater than zero");
+
+        itemCount++;
+        items[itemCount] = Item(
+            itemCount,
+            payable(msg.sender),
+            address(0),
+            _name,
+            _description,
+            _price,
+            false
+        );
+
+        emit ItemListed(itemCount, msg.sender, _name, _price);
+    }
+
+    function buyItem(uint _id) public payable notSold(_id) {
+        Item storage item = items[_id];
+        require(msg.sender != item.seller, "Seller cannot buy their own item");
+        require(msg.value == item.price, "Incorrect payment amount");
+
+        item.seller.transfer(msg.value);
+        item.buyer = msg.sender;
+        item.sold = true;
+
+        emit ItemBought(_id, msg.sender, item.price);
+    }
+
+    function getItem(uint _id) public view returns (
+        uint, address, address, string memory, string memory, uint, bool
+    ) {
+        Item storage item = items[_id];
+        return (
+            item.id,
+            item.seller,
+            item.buyer,
+            item.name,
+            item.description,
+            item.price,
+            item.sold
+        );
+    }
+}
